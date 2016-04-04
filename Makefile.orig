@@ -1,0 +1,67 @@
+#############################################################################
+# The 2nd ARC/CPSY/RECONF High-Performance Computer System Design Contest   #
+# From MieruEMB System V1.0  2011-10-01                Arch Lab. TOKYO TECH #
+#############################################################################
+
+TARGET  = 330stencil
+OBJS    = startup.o main.o
+CMDPREF = /home/share/cad/mipsel-contest/usr/bin/
+IMGSIZE = 256
+
+MIPSCC  = $(CMDPREF)mipsel-linux-gcc
+MIPSAS  = $(CMDPREF)mipsel-linux-as
+MIPSLD  = $(CMDPREF)mipsel-linux-ld
+OBJDUMP = $(CMDPREF)mipsel-linux-objdump
+MEMGEN  = $(CMDPREF)memgen
+SIMPROG = $(CMDPREF)SimMips
+
+ifndef TARGET_ARCH
+TARGET_ARCH = __XILINX__
+endif
+
+AFLAGS  = 
+CFLAGS  = -D$(TARGET_ARCH) -Wall -O2 --save-temps
+LFLAGS  =
+
+.SUFFIXES:
+.SUFFIXES: .o .c .S
+######################################################################
+all:	fpga data
+	cat $(TARGET).bin $(TARGET).dat > $(TARGET)512.bin
+	cp $(TARGET)512.bin ../../bin
+
+fpga:
+	$(MAKE) clean
+	cp startup$(TARGET_ARCH).S startup.S
+	$(MAKE) $(TARGET)
+	$(MAKE) image
+
+data:
+	gcc -Wall data.c -o data_gen
+	./data_gen 3 100 8
+
+$(TARGET): $(OBJS)
+	$(MIPSLD) $(LFLAGS) -T stdld.script $(OBJS) -o $(TARGET)
+
+.c.o:
+	$(MIPSCC) $(CFLAGS) -c $(@D)/$(<F) -o $(@D)/$(@F)
+
+.S.o:
+	$(MIPSCC) $(AFLAGG) -c $(@D)/$(<F) -o $(@D)/$(@F)
+
+image:
+	$(MEMGEN) -b $(TARGET) $(IMGSIZE) > $(TARGET).bin
+
+dump:
+	$(OBJDUMP) -D $(TARGET)
+
+test:   $(TARGET) data
+	cp $(TARGET).dat data.bin
+	$(SIMPROG) -M sim.m $(TARGET)
+
+read:
+	readelf -a $(TARGET)
+
+clean:
+	rm -f *.o *.i *.s *~ log.txt $(TARGET) *.bin $(TARGET).dat a.out data_gen test
+######################################################################

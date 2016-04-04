@@ -1,0 +1,394 @@
+*** main.c-140830	2014-08-30 16:14:44.000000000 +0900
+--- main-20140829d.c	2014-09-02 16:41:07.000000000 +0900
+***************
+*** 7,13 ****
+  #define USE_SIMD        0    (using SIMD emulation)
+  #define USE_SIMD        1    (using real SIMD instructions)
+  */
+! #define USE_SIMD        1 
+  
+  #include "../lib/lib.c"
+  #if defined USE_SIMD && USE_SIMD == 0
+--- 7,13 ----
+  #define USE_SIMD        0    (using SIMD emulation)
+  #define USE_SIMD        1    (using real SIMD instructions)
+  */
+! #define USE_SIMD        1
+  
+  #include "../lib/lib.c"
+  #if defined USE_SIMD && USE_SIMD == 0
+***************
+*** 50,63 ****
+      mylib_display_char('=');
+      mylib_display_dec(iteration);
+      mylib_display_newline();
+!     
+      int *buf1 = (int*) BUF1;
+      int *buf2 = (int*) BUF2;
+  
+      int x, y, i;
+  
+      int d = 0;
+! #ifdef  USE_SIMD    
+  
+  #if USE_SIMD == 0
+  
+--- 50,63 ----
+      mylib_display_char('=');
+      mylib_display_dec(iteration);
+      mylib_display_newline();
+! 
+      int *buf1 = (int*) BUF1;
+      int *buf2 = (int*) BUF2;
+  
+      int x, y, i;
+  
+      int d = 0;
+! #ifdef  USE_SIMD
+  
+  #if USE_SIMD == 0
+  
+***************
+*** 82,89 ****
+      /* zero clear SPR[0] */
+  /*  // this is NG code
+      asm volatile (".set   noat\n\t"
+!                   "psubw  $0,$0,$0\n\t"
+!                   ".set   at");*/
+      asm volatile (".set   noat\n\t"
+                    "pinsw  $0,$0,$0,0\n\t"
+                    "nop\n\t"
+--- 82,89 ----
+      /* zero clear SPR[0] */
+  /*  // this is NG code
+      asm volatile (".set   noat\n\t"
+!     "psubw  $0,$0,$0\n\t"
+!     ".set   at");*/
+      asm volatile (".set   noat\n\t"
+                    "pinsw  $0,$0,$0,0\n\t"
+                    "nop\n\t"
+***************
+*** 110,116 ****
+                        : : "r" (&init_data[d]), "r" (&buf1[i]), "r" (&buf2[i]) );
+  
+          d = (d + 8) % (64*1024);
+!      }
+  
+  #else
+  # error "illegal USE_SIMD setting"
+--- 110,116 ----
+                        : : "r" (&init_data[d]), "r" (&buf1[i]), "r" (&buf2[i]) );
+  
+          d = (d + 8) % (64*1024);
+!     }
+  
+  #else
+  # error "illegal USE_SIMD setting"
+***************
+*** 128,134 ****
+  
+      for(i=0; i<(iteration/2); i++){
+  
+! #ifdef  USE_SIMD    
+  
+  #if USE_SIMD == 0
+  
+--- 128,134 ----
+  
+      for(i=0; i<(iteration/2); i++){
+  
+! #ifdef  USE_SIMD
+  
+  #if USE_SIMD == 0
+  
+***************
+*** 424,430 ****
+              */
+  
+              asm volatile (".set    noat\n\t");
+!                           
+              /* calc first 4-word of upper line */
+              asm volatile ("lq      $2,16(%0)\n\t"       // v1
+                            "lq      $1,(%0)\n\t"         // v0
+--- 424,430 ----
+              */
+  
+              asm volatile (".set    noat\n\t");
+! 
+              /* calc first 4-word of upper line */
+              asm volatile ("lq      $2,16(%0)\n\t"       // v1
+                            "lq      $1,(%0)\n\t"         // v0
+***************
+*** 499,534 ****
+                  asm volatile (".set    noat\n\t");
+  
+                  /* word-shift of double-quadword */
+!                 asm volatile ("pextw   %0,$1,3\n\t"         // get v0[3] => shift_out0
+!                               "pextw   %1,$5,3\n\t"         // get v4[3] => shift_out1
+!                               "pextw   %2,$9,3\n\t"         // get v8[3] => shift_out2
+                                : "=r" (shift_out0),
+                                  "=r" (shift_out1),
+                                  "=r" (shift_out2)
+                                : );
+! /*
+!                 asm volatile (
+!                               "paddw   $1,$2,$0\n\t"        // v0 = v1
+!                               "lq      $2,(%0)\n\t"
+!                               "paddw   $4,$5,$0\n\t"        // v4 = v5
+!                               "lq      $5,(%1)\n\t"
+!                               "paddw   $8,$9,$0\n\t"        // v8 = v9
+!                               "lq      $9,(%2)\n\t"
+! 			      :
+!                               : "r" (buf1 + (y-1)*n + x + 4),
+!                                 "r" (buf1 + y*n + x + 4),
+!                                 "r" (buf1 + (y+1)*n + x + 4) );
+! */
+! 
+! 		//change 2014-08-30
+!                 asm volatile (
+!                               "paddw   $1,$2,$0\n\t"        // v0 = v1
+                                "lq      $2,(%0)\n\t"
+                                "paddw   $5,$6,$0\n\t"        // v4 = v5
+                                "lq      $6,(%1)\n\t"
+!                               "paddw   $9,$10,$0\n\t"        // v8 = v9
+                                "lq      $10,(%2)\n\t"
+! 			      :
+                                : "r" (buf1 + (y-1)*n + x + 4),
+                                  "r" (buf1 + y*n + x + 4),
+                                  "r" (buf1 + (y+1)*n + x + 4) );
+--- 499,518 ----
+                  asm volatile (".set    noat\n\t");
+  
+                  /* word-shift of double-quadword */
+!                 asm volatile ("pextw   %0,$1,3\n\t" // get v0[3] => shift_out0
+!                               "pextw   %1,$5,3\n\t" // get v4[3] => shift_out1
+!                               "pextw   %2,$9,3\n\t" // get v8[3] => shift_out2
+                                : "=r" (shift_out0),
+                                  "=r" (shift_out1),
+                                  "=r" (shift_out2)
+                                : );
+!                 asm volatile ("paddw   $1,$2,$0\n\t"        // v0 = v1
+                                "lq      $2,(%0)\n\t"
+                                "paddw   $5,$6,$0\n\t"        // v4 = v5
+                                "lq      $6,(%1)\n\t"
+!                               "paddw   $9,$10,$0\n\t"       // v8 = v9
+                                "lq      $10,(%2)\n\t"
+!                               :
+                                : "r" (buf1 + (y-1)*n + x + 4),
+                                  "r" (buf1 + y*n + x + 4),
+                                  "r" (buf1 + (y+1)*n + x + 4) );
+***************
+*** 589,624 ****
+              asm volatile (".set    noat\n\t");
+  
+              /* word-shift of double-quadword */
+!             asm volatile ("pextw   %0,$1,3\n\t"         // get v0[3]
+!                           "pextw   %1,$5,3\n\t"         // get v4[3]
+!                           "pextw   %2,$9,3\n\t"         // get v8[3]
+! 
+                            : "=r" (shift_out0),
+                              "=r" (shift_out1),
+                              "=r" (shift_out2)
+                            : );
+! /*
+!             asm volatile (
+!                           "paddw   $1,$2,$0\n\t"        // v0 = v1
+!                           "lq      $2,(%0)\n\t"
+!                           "paddw   $4,$5,$0\n\t"        // v4 = v5
+!                           "lq      $5,(%1)\n\t"
+!                           "paddw   $8,$9,$0\n\t"        // v8 = v9
+!                           "lq      $9,(%2)\n\t"
+! 			  :
+!                           : "r" (buf1 + (y-1)*n + x + 4),
+!                             "r" (buf1 + y*n + x + 4),
+!                             "r" (buf1 + (y+1)*n + x + 4) );
+! */
+! 		//change 2014-08-30
+!             asm volatile (
+!                           "paddw   $1,$2,$0\n\t"        // v0 = v1
+                            "lq      $2,(%0)\n\t"
+                            "paddw   $5,$6,$0\n\t"        // v4 = v5
+                            "lq      $6,(%1)\n\t"
+!                           "paddw   $9,$10,$0\n\t"        // v8 = v9
+                            "lq      $10,(%2)\n\t"
+! 			  :
+                            : "r" (buf1 + (y-1)*n + x + 4),
+                              "r" (buf1 + y*n + x + 4),
+                              "r" (buf1 + (y+1)*n + x + 4) );
+--- 573,592 ----
+              asm volatile (".set    noat\n\t");
+  
+              /* word-shift of double-quadword */
+!             asm volatile ("pextw   %0,$1,3\n\t" // get v0[3] => shift_out0
+!                           "pextw   %1,$5,3\n\t" // get v4[3] => shift_out1
+!                           "pextw   %2,$9,3\n\t" // get v8[3] => shift_out2
+                            : "=r" (shift_out0),
+                              "=r" (shift_out1),
+                              "=r" (shift_out2)
+                            : );
+!             asm volatile ("paddw   $1,$2,$0\n\t"        // v0 = v1
+                            "lq      $2,(%0)\n\t"
+                            "paddw   $5,$6,$0\n\t"        // v4 = v5
+                            "lq      $6,(%1)\n\t"
+!                           "paddw   $9,$10,$0\n\t"       // v8 = v9
+                            "lq      $10,(%2)\n\t"
+!                           :
+                            : "r" (buf1 + (y-1)*n + x + 4),
+                              "r" (buf1 + y*n + x + 4),
+                              "r" (buf1 + (y+1)*n + x + 4) );
+***************
+*** 701,707 ****
+              */
+  
+              asm volatile (".set    noat\n\t");
+!                           
+              /* calc first 4-word of upper line */
+              asm volatile ("lq      $2,16(%0)\n\t"       // v1
+                            "lq      $1,(%0)\n\t"         // v0
+--- 669,675 ----
+              */
+  
+              asm volatile (".set    noat\n\t");
+! 
+              /* calc first 4-word of upper line */
+              asm volatile ("lq      $2,16(%0)\n\t"       // v1
+                            "lq      $1,(%0)\n\t"         // v0
+***************
+*** 776,811 ****
+                  asm volatile (".set    noat\n\t");
+  
+                  /* word-shift of double-quadword */
+!                 asm volatile ("pextw   %0,$1,3\n\t"         // get v0[3] => shift_out0
+!                               "pextw   %1,$5,3\n\t"         // get v4[3] => shift_out1
+!                               "pextw   %2,$9,3\n\t"         // get v8[3] => shift_out2
+                                : "=r" (shift_out0),
+                                  "=r" (shift_out1),
+                                  "=r" (shift_out2)
+                                : );
+! 
+! 
+!                 /* word-shift of double-quadword */
+! /*
+!                 asm volatile (
+!                               "paddw   $1,$2,$0\n\t"        // v0 = v1
+!                               "lq      $2,(%0)\n\t"
+!                               "paddw   $4,$5,$0\n\t"        // v4 = v5
+!                               "lq      $5,(%1)\n\t"
+!                               "paddw   $8,$9,$0\n\t"        // v8 = v9
+!                               "lq      $9,(%2)\n\t"
+!                               :
+!                               : "r" (buf2 + (y-1)*n + x + 4),
+!                                 "r" (buf2 + y*n + x + 4),
+!                                 "r" (buf2 + (y+1)*n + x + 4) );
+! */
+! 		//change 2014-08-30
+!                 asm volatile (
+!                               "paddw   $1,$2,$0\n\t"        // v0 = v1
+                                "lq      $2,(%0)\n\t"
+                                "paddw   $5,$6,$0\n\t"        // v4 = v5
+                                "lq      $6,(%1)\n\t"
+!                               "paddw   $9,$10,$0\n\t"        // v8 = v9
+                                "lq      $10,(%2)\n\t"
+                                :
+                                : "r" (buf2 + (y-1)*n + x + 4),
+--- 744,761 ----
+                  asm volatile (".set    noat\n\t");
+  
+                  /* word-shift of double-quadword */
+!                 asm volatile ("pextw   %0,$1,3\n\t" // get v0[3] => shift_out0
+!                               "pextw   %1,$5,3\n\t" // get v4[3] => shift_out1
+!                               "pextw   %2,$9,3\n\t" // get v8[3] => shift_out2
+                                : "=r" (shift_out0),
+                                  "=r" (shift_out1),
+                                  "=r" (shift_out2)
+                                : );
+!                 asm volatile ("paddw   $1,$2,$0\n\t"        // v0 = v1
+                                "lq      $2,(%0)\n\t"
+                                "paddw   $5,$6,$0\n\t"        // v4 = v5
+                                "lq      $6,(%1)\n\t"
+!                               "paddw   $9,$10,$0\n\t"       // v8 = v9
+                                "lq      $10,(%2)\n\t"
+                                :
+                                : "r" (buf2 + (y-1)*n + x + 4),
+***************
+*** 868,898 ****
+              asm volatile (".set    noat\n\t");
+  
+              /* word-shift of double-quadword */
+!             asm volatile ("pextw   %0,$1,3\n\t"         // get v0[3]
+!                           "pextw   %1,$5,3\n\t"         // get v4[3]
+!                           "pextw   %2,$9,3\n\t"         // get v8[3]
+                            : "=r" (shift_out0),
+                              "=r" (shift_out1),
+                              "=r" (shift_out2)
+                            : );
+! 
+!             /* word-shift of double-quadword */
+! 		/*
+!             asm volatile (
+!                           "paddw   $1,$2,$0\n\t"        // v0 = v1
+!                           "lq      $2,(%0)\n\t"
+!                           "paddw   $4,$5,$0\n\t"        // v4 = v5
+!                           "lq      $5,(%1)\n\t"
+!                           "paddw   $8,$9,$0\n\t"        // v8 = v9
+!                           "lq      $9,(%2)\n\t"
+!                           :
+!                           : "r" (buf2 + (y-1)*n + x + 4),
+!                             "r" (buf2 + y*n + x + 4),
+!                             "r" (buf2 + (y+1)*n + x + 4) );
+! */
+! 		//change 2014-08-30
+!             asm volatile (
+!                           "paddw   $1,$2,$0\n\t"        // v0 = v1
+                            "lq      $2,(%0)\n\t"
+                            "paddw   $5,$6,$0\n\t"        // v4 = v5
+                            "lq      $6,(%1)\n\t"
+--- 818,831 ----
+              asm volatile (".set    noat\n\t");
+  
+              /* word-shift of double-quadword */
+!             asm volatile ("pextw   %0,$1,3\n\t" // get v0[3] => shift_out0
+!                           "pextw   %1,$5,3\n\t" // get v4[3] => shift_out1
+!                           "pextw   %2,$9,3\n\t" // get v8[3] => shift_out2
+                            : "=r" (shift_out0),
+                              "=r" (shift_out1),
+                              "=r" (shift_out2)
+                            : );
+!             asm volatile ("paddw   $1,$2,$0\n\t"        // v0 = v1
+                            "lq      $2,(%0)\n\t"
+                            "paddw   $5,$6,$0\n\t"        // v4 = v5
+                            "lq      $6,(%1)\n\t"
+***************
+*** 1104,1110 ****
+  
+      int sum = 0;
+      simd128 s = { 0, 0, 0, 0, };
+!     
+      for (i = 0; i < n*n; i += 16) {
+          simd128 s2, s3, s4, s5;
+  
+--- 1037,1043 ----
+  
+      int sum = 0;
+      simd128 s = { 0, 0, 0, 0, };
+! 
+      for (i = 0; i < n*n; i += 16) {
+          simd128 s2, s3, s4, s5;
+  
+***************
+*** 1121,1127 ****
+      }
+  
+      sum = s[0] + s[1] + s[2] + s[3];
+!     
+      mylib_display_hex(sum);
+      mylib_display_newline();
+  
+--- 1054,1060 ----
+      }
+  
+      sum = s[0] + s[1] + s[2] + s[3];
+! 
+      mylib_display_hex(sum);
+      mylib_display_newline();
+  
